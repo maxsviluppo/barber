@@ -1,0 +1,7 @@
+{
+  "name": "Barberia Smart",
+  "description": "Un'app per barbieri moderna e veloce con gestione appuntamenti e accesso tramite QR code.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
