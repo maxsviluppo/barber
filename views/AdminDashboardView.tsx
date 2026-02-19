@@ -2,8 +2,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Booking, ShopSettings } from '../types';
 import { getDailySummary } from '../services/geminiService';
-import { Check, Phone, Calendar, Trash2, Sparkles, User, QrCode, X, AlertTriangle, Clock, ExternalLink, Copy, CheckCircle2, Share2, ChevronRight, Pencil } from 'lucide-react';
+import { Check, Phone, Calendar as CalendarIcon, Trash2, Sparkles, User, QrCode, X, AlertTriangle, Clock, ExternalLink, Copy, CheckCircle2, Share2, ChevronRight, Pencil } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import CalendarWidget from '../components/CalendarWidget';
 
 interface AdminDashboardViewProps {
   bookings: Booking[];
@@ -14,8 +15,12 @@ interface AdminDashboardViewProps {
 
 const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ bookings, onUpdateBooking, onDelete, settings }) => {
   const [aiSummary, setAiSummary] = useState<string>('Analisi in corso...');
-  const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
+  const [filterDate, setFilterDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
   const [showQR, setShowQR] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
   const [deletingBookingId, setDeletingBookingId] = useState<string | null>(null);
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [copied, setCopied] = useState(false);
@@ -141,7 +146,10 @@ const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ bookings, onUpd
   };
 
   const isToday = (date: Date) => {
-    return date.toISOString().split('T')[0] === new Date().toISOString().split('T')[0];
+    const d = new Date();
+    return date.getDate() === d.getDate() &&
+           date.getMonth() === d.getMonth() &&
+           date.getFullYear() === d.getFullYear();
   };
 
   const formatDateLabel = (date: Date) => {
@@ -154,47 +162,68 @@ const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ bookings, onUpd
     <div className="max-w-4xl mx-auto px-4 pt-6 pb-24">
       <div className="flex items-center justify-between mb-4 px-2">
          <h2 className="text-xl font-black text-zinc-900 tracking-tight">Agenda</h2>
-         <button 
-          onClick={() => setShowQR(true)}
-          className="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl border border-zinc-100 shadow-sm text-xs font-bold text-zinc-600 active:scale-95 transition-transform"
-        >
-          <QrCode size={14} className="text-amber-600" /> Share QR
-        </button>
+         <div className="flex gap-2">
+           <button 
+            onClick={() => setShowCalendar(!showCalendar)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-2xl border shadow-sm text-xs font-bold active:scale-95 transition-all ${showCalendar ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white text-zinc-600 border-zinc-100'}`}
+          >
+            <CalendarIcon size={14} /> {showCalendar ? 'Chiudi' : 'Calendario'}
+          </button>
+           <button 
+            onClick={() => setShowQR(true)}
+            className="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl border border-zinc-100 shadow-sm text-xs font-bold text-zinc-600 active:scale-95 transition-transform"
+          >
+            <QrCode size={14} className="text-amber-600" /> Share QR
+          </button>
+         </div>
       </div>
 
       <div className="relative mb-8">
-        <div 
-          ref={dateScrollRef}
-          className="flex gap-3 overflow-x-auto pb-4 no-scrollbar scroll-smooth"
-        >
-          {dates.map((date, idx) => {
-            const dateStr = date.toISOString().split('T')[0];
-            const active = filterDate === dateStr;
-            const today = isToday(date);
-            const { day, weekday } = formatDateLabel(date);
-            
-            return (
-              <button
-                key={idx}
-                ref={today ? activeDateRef : null}
-                onClick={() => setFilterDate(dateStr)}
-                className={`flex-shrink-0 w-16 h-20 rounded-3xl flex flex-col items-center justify-center transition-all duration-300 ${
-                  active 
-                    ? 'bg-amber-600 text-white shadow-xl shadow-amber-200 scale-105' 
-                    : today 
-                      ? 'bg-amber-50 border border-amber-200 text-amber-600 shadow-sm'
-                      : 'bg-white border border-zinc-100 text-zinc-400 hover:border-zinc-200 shadow-sm'
-                }`}
-              >
-                <span className={`text-[10px] font-black uppercase mb-1 ${active ? 'text-amber-100' : today ? 'text-amber-600/60' : 'text-zinc-300'}`}>
-                  {weekday}
-                </span>
-                <span className="text-xl font-black">{day}</span>
-                {today && !active && <div className="w-1.5 h-1.5 bg-amber-500 rounded-full mt-1" />}
-              </button>
-            );
-          })}
-        </div>
+        {showCalendar ? (
+          <CalendarWidget 
+            bookings={bookings} 
+            selectedDate={filterDate} 
+            onSelectDate={setFilterDate} 
+            onClose={() => setShowCalendar(false)}
+          />
+        ) : (
+          <div 
+            ref={dateScrollRef}
+            className="flex gap-3 overflow-x-auto pb-4 no-scrollbar scroll-smooth"
+          >
+            {dates.map((date, idx) => {
+              const y = date.getFullYear();
+              const m = String(date.getMonth() + 1).padStart(2, '0');
+              const d = String(date.getDate()).padStart(2, '0');
+              const dateStr = `${y}-${m}-${d}`;
+              
+              const active = filterDate === dateStr;
+              const today = isToday(date);
+              const { day, weekday } = formatDateLabel(date);
+              
+              return (
+                <button
+                  key={idx}
+                  ref={today ? activeDateRef : null}
+                  onClick={() => setFilterDate(dateStr)}
+                  className={`flex-shrink-0 w-16 h-20 rounded-3xl flex flex-col items-center justify-center transition-all duration-300 ${
+                    active 
+                      ? 'bg-amber-600 text-white shadow-xl shadow-amber-200 scale-105' 
+                      : today 
+                        ? 'bg-amber-50 border border-amber-200 text-amber-600 shadow-sm'
+                        : 'bg-white border border-zinc-100 text-zinc-400 hover:border-zinc-200 shadow-sm'
+                  }`}
+                >
+                  <span className={`text-[10px] font-black uppercase mb-1 ${active ? 'text-amber-100' : today ? 'text-amber-600/60' : 'text-zinc-300'}`}>
+                    {weekday}
+                  </span>
+                  <span className="text-xl font-black">{day}</span>
+                  {today && !active && <div className="w-1.5 h-1.5 bg-amber-500 rounded-full mt-1" />}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 p-6 rounded-[32px] text-white mb-8 relative overflow-hidden shadow-2xl border border-zinc-700">
@@ -215,7 +244,15 @@ const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ bookings, onUpd
       <div className="space-y-6">
         <div className="flex items-center justify-between px-2">
           <h3 className="text-lg font-black text-zinc-900 flex items-center gap-2">
-            <Clock size={18} className="text-amber-600" /> Timeline
+            <Clock size={18} className="text-amber-600" /> 
+            <span>
+              Timeline <span className="text-zinc-400 font-medium text-sm ml-1">
+                {(() => {
+                  const [y, m, d] = filterDate.split('-').map(Number);
+                  return new Date(y, m - 1, d).toLocaleDateString('it-IT', { day: 'numeric', month: 'long' });
+                })()}
+              </span>
+            </span>
           </h3>
           <span className="text-[10px] font-black text-amber-700 bg-amber-100 px-3 py-1.5 rounded-full uppercase tracking-widest">
             {dayBookings.length} APPUNTAMENTI
